@@ -1,23 +1,18 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass
-class Column:
+class Column(BaseModel):
     name: str
     attnum: int
     type: str
 
 
-@dataclass
-class Table:
+class Table(BaseModel):
     name: str
     oid: int
     columns: dict[str, Column]
     primary_key: list[str]
 
 
-@dataclass
-class Schema:
-    name: str
-    oid: int
+class Schema(BaseModel):
     tables: dict[str, Table]

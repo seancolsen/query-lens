@@ -1,3 +1,5 @@
 pglast==7.0
 mistune==3.0.2
 pytest==8.3.3
+pydantic==2.10.0
+mypy==1.13.0

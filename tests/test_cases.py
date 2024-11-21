@@ -2,11 +2,14 @@ import json
 
 import pytest
 
+from schema import Schema
 from utils.markdown_test_cases import get_test_cases
 from analyze import analyze_sql
 
 
 @pytest.mark.parametrize("case", list(get_test_cases("tests/test_cases.md")))
 def test_cases(case):
-    [sql, analysis_json] = case.parameters
-    assert analyze_sql(None, sql) == json.loads(analysis_json)
+    with open("tests/test_data/issue_tracker_schema.json") as f:
+        schema = Schema.model_validate_json(f.read())
+    [sql_input, expected_analysis_json] = case.parameters
+    assert analyze_sql(schema, sql_input) == json.loads(expected_analysis_json)

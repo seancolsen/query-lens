@@ -1,5 +1,7 @@
 # Test cases
 
+All test cases use this sample [issue tracker schema](./test_data/issue_tracker_schema.json).
+
 ## Basic constant
 
 ```sql
@@ -30,17 +32,23 @@ FROM issues;
 {
   "result_columns": [
     {
-      "classification": "pk_cell",
+      "classification": "primary_key",
       "type": "integer",
-      "alias": "id"
+      "name": "id"
     },
     {
-      "classification": "data_cell",
+      "classification": "data",
       "type": "text",
-      "alias": "issue_title",
-      "table": "issues",
-      "column": "title",
-      "pk_lookup_alias": [ "id" ]
+      "name": "issue_title",
+      "table": {
+        "name": "issues",
+        "oid": 1
+      },
+      "column": {
+        "name": "title",
+        "attnum": 2
+      },
+      "primary_key_lookup_names": [ "id" ]
     }
   ]
 }
