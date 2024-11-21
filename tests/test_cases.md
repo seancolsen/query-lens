@@ -13,7 +13,7 @@ SELECT 1;
   "result_columns": [
     {
       "classification": "constant",
-      "type": "integer"
+      "type": "unknown"
     }
   ]
 }

@@ -1,47 +1,35 @@
 from typing import *
 
 from pglast import parse_sql
-from pglast.ast import SelectStmt
-from pydantic import BaseModel
+from pglast.ast import SelectStmt, Node, A_Const, ColumnRef
 
+from analysis import *
+from context import Context
 from schema import Schema
 
 
-class ConstantColumn(BaseModel):
-    classification: str = "constant"
-    type: str
-    name: Optional[str] = None
+def analyze_result_column_expr(cx: Context, expr: Node) -> ResultColumn:
+    if isinstance(expr, A_Const):
+        return ConstantColumn(type="unknown")
+    if isinstance(expr, ColumnRef):
+        return ConstantColumn(type="unknown")
+    raise NotImplementedError()
 
 
-class TableReference(BaseModel):
-    name: str
-    oid: int
+def analyze_select_stmt(schema: Schema, stmt: SelectStmt):
+    cx = Context(schema, stmt)
+    for expr in stmt.targetList:
+        if expr.indirection is not None:
+            # The AST has an 'indirection' field here. I'm not sure what it
+            # might be for, so I'm erring on the side of caution by raising an
+            # error if I encounter it.
+            raise NotImplementedError()
+        yield analyze_result_column_expr(cx, expr.val)
 
 
-class ColumnReference(BaseModel):
-    name: str
-    attnum: int
-
-
-class DataColumn(BaseModel):
-    classification: str = "data"
-    type: str
-    table: TableReference
-    column: ColumnReference
-    name: Optional[str] = None
-    primary_key_lookup_names: Optional[List[str]] = None
-
-
-type ResultColumn = Union[ConstantColumn, DataColumn]
-
-
-def analyze_select_stmt(schema: Schema, stmt: SelectStmt) -> List[ResultColumn]:
-    pass
-
-
-def analyze_sql(schema: Schema, query: str):
+def analyze_sql(schema: Schema, sql: str):
     try:
-        ast = parse_sql(query)
+        ast = parse_sql(sql)
     except Exception as e:
         # TODO decide what return value should be for invalid input
         raise NotImplementedError()
@@ -52,7 +40,9 @@ def analyze_sql(schema: Schema, query: str):
 
     first_statement = ast[0].stmt
     if isinstance(first_statement, SelectStmt):
-        return analyze_select_stmt(schema, first_statement)
+        return Analysis(
+            result_columns=list(analyze_select_stmt(schema, first_statement))
+        )
     else:
         # TODO decide what return value should be for non-SELECT input
         raise NotImplementedError()
