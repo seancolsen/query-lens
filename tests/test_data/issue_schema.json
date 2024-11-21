@@ -1,0 +1,176 @@
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "username"
+        },
+        {
+          "name": "email"
+        },
+        {
+          "name": "team"
+        }
+      ]
+    },
+    {
+      "name": "issues",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "title"
+        },
+        {
+          "name": "description"
+        },
+        {
+          "name": "created_at"
+        },
+        {
+          "name": "author"
+        },
+        {
+          "name": "status"
+        },
+        {
+          "name": "project"
+        },
+        {
+          "name": "duplicate_of"
+        },
+        {
+          "name": "due_date"
+        }
+      ]
+    },
+    {
+      "name": "assignments",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "issue"
+        },
+        {
+          "name": "user"
+        }
+      ]
+    },
+    {
+      "name": "blocks",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "blocker"
+        },
+        {
+          "name": "blocking"
+        }
+      ]
+    },
+    {
+      "name": "projects",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "product"
+        }
+      ]
+    },
+    {
+      "name": "labels",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        }
+      ]
+    },
+    {
+      "name": "issue_labels",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "issue"
+        },
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "name": "comments",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "issue"
+        },
+        {
+          "name": "user"
+        },
+        {
+          "name": "body"
+        },
+        {
+          "name": "created_at"
+        }
+      ]
+    },
+    {
+      "name": "teams",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        },
+        {
+          "name": "client"
+        }
+      ]
+    },
+    {
+      "name": "clients",
+      "columns": [
+        {
+          "name": "id"
+        },
+        {
+          "name": "name"
+        }
+      ]
+    }
+  ]
+}
