@@ -72,10 +72,10 @@ FROM issues;
       "column_reference": {
         "name": "id",
         "attnum": 1,
-        "table": {
+        "table_reference": {
           "name": "issues",
           "oid": 1,
-          "schema": {
+          "schema_reference": {
             "name": "public",
             "oid": 2200
           }
@@ -89,10 +89,10 @@ FROM issues;
       "column_reference": {
         "name": "title",
         "attnum": 2,
-        "table": {
+        "table_reference": {
           "name": "issues",
           "oid": 1,
-          "schema": {
+          "schema_reference": {
             "name": "public",
             "oid": 2200
           }
