@@ -1,298 +1,305 @@
 {
-  "tables": {
-    "users": {
-      "name": "users",
-      "oid": 1,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
+  "schemas": {
+    "public": {
+      "name": "public",
+      "oid": 2200,
+      "tables": {
+        "users": {
+          "name": "users",
+          "oid": 1,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "username": {
+              "name": "username",
+              "attnum": 2,
+              "type": "text"
+            },
+            "email": {
+              "name": "email",
+              "attnum": 3,
+              "type": "text"
+            },
+            "team": {
+              "name": "team",
+              "attnum": 4,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
         },
-        "username": {
-          "name": "username",
-          "attnum": 2,
-          "type": "text"
+        "issues": {
+          "name": "issues",
+          "oid": 2,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "title": {
+              "name": "title",
+              "attnum": 2,
+              "type": "text"
+            },
+            "description": {
+              "name": "description",
+              "attnum": 3,
+              "type": "text"
+            },
+            "created_at": {
+              "name": "created_at",
+              "attnum": 4,
+              "type": "timestamp with time zone"
+            },
+            "author": {
+              "name": "author",
+              "attnum": 5,
+              "type": "integer"
+            },
+            "status": {
+              "name": "status",
+              "attnum": 6,
+              "type": "text"
+            },
+            "project": {
+              "name": "project",
+              "attnum": 7,
+              "type": "integer"
+            },
+            "duplicate_of": {
+              "name": "duplicate_of",
+              "attnum": 8,
+              "type": "integer"
+            },
+            "due_date": {
+              "name": "due_date",
+              "attnum": 9,
+              "type": "date"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
         },
-        "email": {
-          "name": "email",
-          "attnum": 3,
-          "type": "text"
+        "assignments": {
+          "name": "assignments",
+          "oid": 3,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "issue": {
+              "name": "issue",
+              "attnum": 2,
+              "type": "integer"
+            },
+            "user": {
+              "name": "user",
+              "attnum": 3,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
         },
-        "team": {
-          "name": "team",
-          "attnum": 4,
-          "type": "integer"
+        "blocks": {
+          "name": "blocks",
+          "oid": 4,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "blocker": {
+              "name": "blocker",
+              "attnum": 2,
+              "type": "integer"
+            },
+            "blocking": {
+              "name": "blocking",
+              "attnum": 3,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "projects": {
+          "name": "projects",
+          "oid": 5,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "name": {
+              "name": "name",
+              "attnum": 2,
+              "type": "text"
+            },
+            "product": {
+              "name": "product",
+              "attnum": 3,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "labels": {
+          "name": "labels",
+          "oid": 6,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "name": {
+              "name": "name",
+              "attnum": 2,
+              "type": "text"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "issue_labels": {
+          "name": "issue_labels",
+          "oid": 7,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "issue": {
+              "name": "issue",
+              "attnum": 2,
+              "type": "integer"
+            },
+            "label": {
+              "name": "label",
+              "attnum": 3,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "comments": {
+          "name": "comments",
+          "oid": 8,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "issue": {
+              "name": "issue",
+              "attnum": 2,
+              "type": "integer"
+            },
+            "user": {
+              "name": "user",
+              "attnum": 3,
+              "type": "integer"
+            },
+            "body": {
+              "name": "body",
+              "attnum": 4,
+              "type": "text"
+            },
+            "created_at": {
+              "name": "created_at",
+              "attnum": 5,
+              "type": "timestamp with time zone"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "teams": {
+          "name": "teams",
+          "oid": 9,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "name": {
+              "name": "name",
+              "attnum": 2,
+              "type": "text"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "products": {
+          "name": "products",
+          "oid": 10,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "name": {
+              "name": "name",
+              "attnum": 2,
+              "type": "text"
+            },
+            "client": {
+              "name": "client",
+              "attnum": 3,
+              "type": "integer"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
+        },
+        "clients": {
+          "name": "clients",
+          "oid": 11,
+          "columns": {
+            "id": {
+              "name": "id",
+              "attnum": 1,
+              "type": "integer"
+            },
+            "name": {
+              "name": "name",
+              "attnum": 2,
+              "type": "text"
+            }
+          },
+          "primary_key": [
+            "id"
+          ]
         }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "issues": {
-      "name": "issues",
-      "oid": 2,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "title": {
-          "name": "title",
-          "attnum": 2,
-          "type": "text"
-        },
-        "description": {
-          "name": "description",
-          "attnum": 3,
-          "type": "text"
-        },
-        "created_at": {
-          "name": "created_at",
-          "attnum": 4,
-          "type": "timestamp with time zone"
-        },
-        "author": {
-          "name": "author",
-          "attnum": 5,
-          "type": "integer"
-        },
-        "status": {
-          "name": "status",
-          "attnum": 6,
-          "type": "text"
-        },
-        "project": {
-          "name": "project",
-          "attnum": 7,
-          "type": "integer"
-        },
-        "duplicate_of": {
-          "name": "duplicate_of",
-          "attnum": 8,
-          "type": "integer"
-        },
-        "due_date": {
-          "name": "due_date",
-          "attnum": 9,
-          "type": "date"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "assignments": {
-      "name": "assignments",
-      "oid": 3,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "issue": {
-          "name": "issue",
-          "attnum": 2,
-          "type": "integer"
-        },
-        "user": {
-          "name": "user",
-          "attnum": 3,
-          "type": "integer"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "blocks": {
-      "name": "blocks",
-      "oid": 4,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "blocker": {
-          "name": "blocker",
-          "attnum": 2,
-          "type": "integer"
-        },
-        "blocking": {
-          "name": "blocking",
-          "attnum": 3,
-          "type": "integer"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "projects": {
-      "name": "projects",
-      "oid": 5,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "name": {
-          "name": "name",
-          "attnum": 2,
-          "type": "text"
-        },
-        "product": {
-          "name": "product",
-          "attnum": 3,
-          "type": "integer"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "labels": {
-      "name": "labels",
-      "oid": 6,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "name": {
-          "name": "name",
-          "attnum": 2,
-          "type": "text"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "issue_labels": {
-      "name": "issue_labels",
-      "oid": 7,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "issue": {
-          "name": "issue",
-          "attnum": 2,
-          "type": "integer"
-        },
-        "label": {
-          "name": "label",
-          "attnum": 3,
-          "type": "integer"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "comments": {
-      "name": "comments",
-      "oid": 8,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "issue": {
-          "name": "issue",
-          "attnum": 2,
-          "type": "integer"
-        },
-        "user": {
-          "name": "user",
-          "attnum": 3,
-          "type": "integer"
-        },
-        "body": {
-          "name": "body",
-          "attnum": 4,
-          "type": "text"
-        },
-        "created_at": {
-          "name": "created_at",
-          "attnum": 5,
-          "type": "timestamp with time zone"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "teams": {
-      "name": "teams",
-      "oid": 9,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "name": {
-          "name": "name",
-          "attnum": 2,
-          "type": "text"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "products": {
-      "name": "products",
-      "oid": 10,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "name": {
-          "name": "name",
-          "attnum": 2,
-          "type": "text"
-        },
-        "client": {
-          "name": "client",
-          "attnum": 3,
-          "type": "integer"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
-    },
-    "clients": {
-      "name": "clients",
-      "oid": 11,
-      "columns": {
-        "id": {
-          "name": "id",
-          "attnum": 1,
-          "type": "integer"
-        },
-        "name": {
-          "name": "name",
-          "attnum": 2,
-          "type": "text"
-        }
-      },
-      "primary_key": [
-        "id"
-      ]
+      }
     }
-  }
+  },
+  "current_schema": "public"
 }

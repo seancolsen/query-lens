@@ -4,30 +4,34 @@ from pglast import parse_sql
 from pglast.ast import SelectStmt, Node, A_Const, ColumnRef
 
 from analysis import *
-from context import Context
-from schema import Schema
+from context import Context, ColumnResolver
+from structure import DatabaseStructure
 
 
-def analyze_result_column_expr(cx: Context, expr: Node) -> ResultColumn:
+def _deduce_result_column(resolve_column: ColumnResolver, expr: Node) -> ResultColumn:
     if isinstance(expr, A_Const):
         return ConstantColumn(type="unknown")
     if isinstance(expr, ColumnRef):
-        return ConstantColumn(type="unknown")
+        # TODO: continue building this out by picking apart the ColumnRef fields
+        # column = cx.resolve_column()
+        return UnknownColumn()
     raise NotImplementedError()
 
 
-def analyze_select_stmt(schema: Schema, stmt: SelectStmt):
-    cx = Context(schema, stmt)
+def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):
+    context = Context(database_structure, stmt)
+    column_resolver = context.create_column_resolver()
+
     for expr in stmt.targetList:
         if expr.indirection is not None:
             # The AST has an 'indirection' field here. I'm not sure what it
             # might be for, so I'm erring on the side of caution by raising an
             # error if I encounter it.
             raise NotImplementedError()
-        yield analyze_result_column_expr(cx, expr.val)
+        yield _deduce_result_column(column_resolver, expr.val)
 
 
-def analyze_sql(schema: Schema, sql: str):
+def analyze_sql(database_structure: DatabaseStructure, sql: str):
     try:
         ast = parse_sql(sql)
     except Exception as e:
@@ -41,7 +45,9 @@ def analyze_sql(schema: Schema, sql: str):
     first_statement = ast[0].stmt
     if isinstance(first_statement, SelectStmt):
         return Analysis(
-            result_columns=list(analyze_select_stmt(schema, first_statement))
+            result_columns=list(
+                _deduce_result_columns(database_structure, first_statement)
+            )
         )
     else:
         # TODO decide what return value should be for non-SELECT input

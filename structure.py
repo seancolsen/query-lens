@@ -15,4 +15,11 @@ class Table(BaseModel):
 
 
 class Schema(BaseModel):
+    name: str
+    oid: int
     tables: dict[str, Table]
+
+
+class DatabaseStructure(BaseModel):
+    schemas: dict[str, Schema]
+    current_schema: str
