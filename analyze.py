@@ -1,7 +1,7 @@
 from typing import *
 
 from pglast import parse_sql
-from pglast.ast import SelectStmt, Node, A_Const, ColumnRef
+from pglast.ast import SelectStmt, Node, A_Const, ColumnRef, String
 
 from analysis import *
 from context import Context, ColumnResolver
@@ -11,11 +11,29 @@ from structure import DatabaseStructure
 def _deduce_result_column(resolve_column: ColumnResolver, expr: Node) -> ResultColumn:
     if isinstance(expr, A_Const):
         return ConstantColumn(type="unknown")
+
     if isinstance(expr, ColumnRef):
-        # TODO: continue building this out by picking apart the ColumnRef fields
-        # column = cx.resolve_column()
-        return UnknownColumn()
-    raise NotImplementedError()
+        fields: Tuple[String] = expr.fields
+        column = None
+        schema_name = None
+        table_name = None
+        if len(fields) == 1:
+            column_name = fields[0].sval
+        elif len(fields) == 2:
+            table_name = fields[0].sval
+            column_name = fields[1].sval
+        elif len(fields) == 3:
+            schema_name = fields[0].sval
+            table_name = fields[1].sval
+            column_name = fields[2].sval
+        else:
+            reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
+            return UnknownColumn(reason=reason)
+        column = resolve_column(schema_name, table_name, column_name)
+        return column if column else UnknownColumn(reason="Unable to resolve column.")
+
+    else:
+        raise NotImplementedError()
 
 
 def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):

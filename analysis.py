@@ -66,6 +66,7 @@ class DataColumn(BaseModel):
 
 class UnknownColumn(BaseModel):
     classification: str = "unknown"
+    reason: Optional[str] = None
 
 
 type ResultColumn = Union[ConstantColumn, PrimaryKeyColumn, DataColumn, UnknownColumn]

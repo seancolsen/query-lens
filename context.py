@@ -9,6 +9,8 @@ from structure import *
 type ColumnsMap = Dict[str, ResultColumn]
 type RelationsMap = Dict[str, ColumnsMap]
 type SchemasMap = Dict[Optional[str], RelationsMap]
+
+# schema_name, relation_name, column_name
 type ColumnResolver = Callable[
     [Optional[str], Optional[str], str], Optional[ResultColumn]
 ]
@@ -70,11 +72,18 @@ def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap
 
 class Context:
     _database_structure: DatabaseStructure
+    _current_schema: Schema
     _stmt: SelectStmt
     _ctes: RelationsMap
 
     def __init__(self, database_structure: DatabaseStructure, stmt: SelectStmt):
         self._database_structure = database_structure
+        current_schema = database_structure.schemas.get(
+            database_structure.current_schema
+        )
+        if not current_schema:
+            raise ValueError("Current schema not found in database structure.")
+        self._current_schema = current_schema
         self._stmt = stmt
         self._ctes = _build_ctes_map(database_structure, stmt)
 
@@ -90,10 +99,13 @@ class Context:
                 return None
             return _build_result_columns_from_table(schema, table)
         else:
-            relation = self._ctes.get(relation_name)
-            if relation is None:
+            cte = self._ctes.get(relation_name)
+            if cte:
+                return cte
+            table = self._current_schema.tables.get(relation_name)
+            if not table:
                 return None
-            return relation
+            return _build_result_columns_from_table(self._current_schema, table)
 
     def _get_referenced_relations(
         self, node: Node
@@ -102,12 +114,13 @@ class Context:
             yield from self._get_referenced_relations(node.fromClause)
         elif isinstance(node, RangeVar):
             columns_map = self._resolve_relation(node.schemaname, node.relname)
-            if columns_map:
-                yield ReferencedRelation(
-                    schema_name=node.schemaname,
-                    name=node.relname,
-                    columns=columns_map,
-                )
+            if not columns_map:
+                raise ValueError(f"Unable to resolve relation: {node}")
+            yield ReferencedRelation(
+                schema_name=node.schemaname,
+                name=node.relname,
+                columns=columns_map,
+            )
         elif isinstance(node, JoinExpr):
             raise NotImplementedError()
         elif isinstance(node, list) or isinstance(node, tuple):
