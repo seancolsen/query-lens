@@ -117,6 +117,8 @@ class Context:
         self, node: Node
     ) -> Generator[ReferencedRelation, None, None]:
         if isinstance(node, SelectStmt):
+            if not node.fromClause:
+                return
             yield from self._get_referenced_relations(node.fromClause)
         elif isinstance(node, RangeVar):
             columns_map = self._resolve_relation(node.schemaname, node.relname)
