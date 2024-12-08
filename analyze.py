@@ -1,16 +1,18 @@
 from typing import *
 
 from pglast import parse_sql
-from pglast.ast import SelectStmt, Node, A_Const, ColumnRef, String
+from pglast.ast import SelectStmt, Node, A_Const, ColumnRef, String, ResTarget
 
 from analysis import *
 from context import Context, ColumnResolver
 from structure import DatabaseStructure
 
 
-def _deduce_result_column(resolve_column: ColumnResolver, expr: Node) -> ResultColumn:
+def _deduce_result_column_definition(
+    resolve_column: ColumnResolver, expr: Node
+) -> ColumnDefinition:
     if isinstance(expr, A_Const):
-        return ConstantColumn(type="unknown")
+        return ConstantColumnDefinition(type="unknown")
 
     if isinstance(expr, ColumnRef):
         fields: Tuple[String] = expr.fields
@@ -28,12 +30,26 @@ def _deduce_result_column(resolve_column: ColumnResolver, expr: Node) -> ResultC
             column_name = fields[2].sval
         else:
             reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
-            return UnknownColumn(reason=reason)
+            return UnknownColumnDefinition(reason=reason)
         column = resolve_column(schema_name, table_name, column_name)
-        return column if column else UnknownColumn(reason="Unable to resolve column.")
+        return (
+            column.definition
+            if column
+            else UnknownColumnDefinition(reason="Unable to resolve column.")
+        )
 
     else:
         raise NotImplementedError()
+
+
+def _deduce_result_column_name(expr: Node) -> Optional[str]:
+    if isinstance(expr, ColumnRef):
+        return expr.fields[-1].sval
+    else:
+        # TODO we could get more clever here to handle additional cases. For example,
+        # PostgreSQL will name a `count(*)` column as `count`. We could handle that here
+        # and other similar cases.
+        return None
 
 
 def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):
@@ -41,12 +57,19 @@ def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectSt
     column_resolver = context.create_column_resolver()
 
     for expr in stmt.targetList:
-        if expr.indirection is not None:
-            # The AST has an 'indirection' field here. I'm not sure what it
-            # might be for, so I'm erring on the side of caution by raising an
-            # error if I encounter it.
+        res_target: ResTarget = expr
+        if res_target.indirection is not None:
+            # The AST has an 'indirection' field here.
+            #
+            # https://pglast.readthedocs.io/en/v7/ast.html#pglast.ast.ResTarget
+            #
+            # I don't understand it well enough so I'm erring on the side of caution by
+            # raising an error if encountered.
             raise NotImplementedError()
-        yield _deduce_result_column(column_resolver, expr.val)
+
+        definition = _deduce_result_column_definition(column_resolver, res_target.val)
+        name = res_target.name or _deduce_result_column_name(res_target.val)
+        yield ResultColumn(definition=definition, name=name)
 
 
 def analyze_sql(database_structure: DatabaseStructure, sql: str):

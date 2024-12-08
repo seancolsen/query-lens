@@ -62,10 +62,16 @@ def _build_ctes_map(
 def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap:
     def _build_column(column: Column) -> ResultColumn:
         column_reference = ColumnReference.from_structure(schema, table, column)
-        if column.name in table.primary_key:
-            return PrimaryKeyColumn(type=column.type, column_reference=column_reference)
-        # TODO: Also set primary_key_lookup_names
-        return DataColumn(type=column.type, column_reference=column_reference)
+        definition = (
+            PrimaryKeyColumnDefinition(
+                type=column.type, column_reference=column_reference
+            )
+            if column.name in table.primary_key
+            else DataColumnDefinition(
+                type=column.type, column_reference=column_reference
+            )
+        )
+        return ResultColumn(name=column.name, definition=definition)
 
     return {c.name: _build_column(c) for c in table.columns.values()}
 

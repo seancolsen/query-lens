@@ -2,6 +2,80 @@
 
 All test cases use this sample [issue tracker schema](./test_data/issue_tracker_schema.json).
 
+## Basic constant
+
+```sql
+SELECT 1;
+```
+
+```json
+{
+  "result_columns": [
+    {
+      "name": null,
+      "definition": {
+        "classification": "constant",
+        "type": "unknown"
+      }
+    }
+  ]
+}
+```
+
+## Basic columns
+
+```sql
+SELECT
+  id,
+  title AS issue_title
+FROM issues;
+```
+
+```json
+{
+  "result_columns": [
+    {
+      "name": "id",
+      "definition": {
+        "classification": "primary_key",
+        "type": "integer",
+        "column_reference": {
+          "name": "id",
+          "attnum": 1,
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "issue_title",
+      "definition": {
+        "classification": "data",
+        "type": "text",
+        "column_reference": {
+          "name": "title",
+          "attnum": 2,
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
 ## Playground
 
 ```sql
@@ -34,72 +108,4 @@ CROSS JOIN foo;
 
 ```json
 "TODO"
-```
-
-## Basic constant
-
-```sql
-SELECT 1;
-```
-
-```json
-{
-  "result_columns": [
-    {
-      "classification": "constant",
-      "type": "unknown"
-    }
-  ]
-}
-```
-
-## Basic columns
-
-```sql
-SELECT
-  id,
-  title AS issue_title
-FROM issues;
-```
-
-```json
-{
-  "result_columns": [
-    {
-      "classification": "primary_key",
-      "type": "integer",
-      "name": "id",
-      "column_reference": {
-        "name": "id",
-        "attnum": 1,
-        "table_reference": {
-          "name": "issues",
-          "oid": 1,
-          "schema_reference": {
-            "name": "public",
-            "oid": 2200
-          }
-        }
-      }
-    },
-    {
-      "classification": "data",
-      "type": "text",
-      "name": "issue_title",
-      "column_reference": {
-        "name": "title",
-        "attnum": 2,
-        "table_reference": {
-          "name": "issues",
-          "oid": 1,
-          "schema_reference": {
-            "name": "public",
-            "oid": 2200
-          }
-        }
-      },
-      "primary_key_lookup_names": [ "id" ]
-    }
-  ]
-}
 ```

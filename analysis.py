@@ -1,15 +1,8 @@
 from typing import *
-import json
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from structure import Column, Table, Schema
-
-
-class ConstantColumn(BaseModel):
-    classification: str = "constant"
-    type: str
-    name: Optional[str] = None
 
 
 class SchemaReference(BaseModel):
@@ -49,52 +42,41 @@ class ColumnReference(BaseModel):
         )
 
 
-class PrimaryKeyColumn(BaseModel):
-    classification: str = "primary_key"
+class ConstantColumnDefinition(BaseModel):
+    classification: Literal["constant"] = "constant"
     type: str
-    column_reference: ColumnReference
-    name: Optional[str] = None
 
 
-class DataColumn(BaseModel):
-    classification: str = "data"
+class PrimaryKeyColumnDefinition(BaseModel):
+    classification: Literal["primary_key"] = "primary_key"
     type: str
     column_reference: ColumnReference
-    name: Optional[str] = None
+
+
+class DataColumnDefinition(BaseModel):
+    classification: Literal["data"] = "data"
+    type: str
+    column_reference: ColumnReference
     primary_key_lookup_names: Optional[List[str]] = None
 
 
-class UnknownColumn(BaseModel):
-    classification: str = "unknown"
+class UnknownColumnDefinition(BaseModel):
+    classification: Literal["unknown"] = "unknown"
     reason: Optional[str] = None
 
 
-type ResultColumn = Union[ConstantColumn, PrimaryKeyColumn, DataColumn, UnknownColumn]
+type ColumnDefinition = Union[
+    ConstantColumnDefinition,
+    PrimaryKeyColumnDefinition,
+    DataColumnDefinition,
+    UnknownColumnDefinition,
+]
+
+
+class ResultColumn(BaseModel):
+    definition: ColumnDefinition = Field(discriminator="classification")
+    name: Optional[str] = None
 
 
 class Analysis(BaseModel):
     result_columns: List[ResultColumn]
-
-    @classmethod
-    def model_validate_json(
-        cls,
-        json_data: str | bytes | bytearray,
-        *,
-        strict: bool | None = None,
-        context: Any | None = None,
-    ) -> Self:
-        data = json.loads(json_data)
-        result_columns: List[ResultColumn] = []
-        for column_data in data.get("result_columns", []):
-            classification = column_data.get("classification")
-            if classification == "constant":
-                result_columns.append(ConstantColumn.model_validate(column_data))
-            elif classification == "primary_key":
-                result_columns.append(PrimaryKeyColumn.model_validate(column_data))
-            elif classification == "data":
-                result_columns.append(DataColumn.model_validate(column_data))
-            elif classification == "unknown":
-                result_columns.append(UnknownColumn.model_validate(column_data))
-            else:
-                raise ValueError(f"Unknown classification: {classification}")
-        return cls(result_columns=result_columns)
