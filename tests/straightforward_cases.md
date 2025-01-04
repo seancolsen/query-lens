@@ -76,6 +76,104 @@ FROM issues;
 }
 ```
 
+
+## Joins
+
+```sql
+SELECT
+  issue.id,
+  issue.title,
+  author.username as author,
+  team.name as team
+FROM issues as issue
+LEFT JOIN users as author ON author.id = issue.author
+LEFT JOIN teams as team ON team.id = author.team
+```
+
+```json
+{
+  "result_columns": [
+    {
+      "name": "id",
+      "definition": {
+        "classification": "primary_key",
+        "type": "integer",
+        "column_reference": {
+          "name": "id",
+          "attnum": 1,
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "title",
+      "definition": {
+        "classification": "data",
+        "type": "text",
+        "column_reference": {
+          "name": "title",
+          "attnum": 2,
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "author",
+      "definition": {
+        "classification": "data",
+        "type": "text",
+        "column_reference": {
+          "name": "username",
+          "attnum": 2,
+          "table_reference": {
+            "name": "users",
+            "oid": 3,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "team",
+      "definition": {
+        "classification": "data",
+        "type": "text",
+        "column_reference": {
+          "name": "name",
+          "attnum": 2,
+          "table_reference": {
+            "name": "teams",
+            "oid": 4,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+
 ## Playground
 
 ```sql
