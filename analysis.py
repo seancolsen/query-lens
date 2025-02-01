@@ -2,7 +2,7 @@ from typing import *
 
 from pydantic import BaseModel, Field
 
-from structure import Column, Table, Schema
+from structure import Column, Table, Schema, LookupColumnSet
 
 
 class SchemaReference(BaseModel):
@@ -29,16 +29,14 @@ class TableReference(BaseModel):
 
 
 class ColumnReference(BaseModel):
-    name: str
-    attnum: int
     table_reference: TableReference
+    column: Column
 
     @classmethod
     def from_structure(cls, schema: Schema, table: Table, column: Column) -> Self:
         return cls(
-            name=column.name,
-            attnum=column.attnum,
             table_reference=TableReference.from_structure(schema, table),
+            column=column,
         )
 
 
@@ -47,17 +45,10 @@ class ConstantColumnDefinition(BaseModel):
     type: str
 
 
-class PrimaryKeyColumnDefinition(BaseModel):
-    classification: Literal["primary_key"] = "primary_key"
-    type: str
-    column_reference: ColumnReference
-
-
 class DataColumnDefinition(BaseModel):
     classification: Literal["data"] = "data"
-    type: str
     column_reference: ColumnReference
-    primary_key_lookup_names: Optional[List[str]] = None
+    lookup_column_sets: List[LookupColumnSet]
 
 
 class UnknownColumnDefinition(BaseModel):
@@ -67,7 +58,6 @@ class UnknownColumnDefinition(BaseModel):
 
 type ColumnDefinition = Union[
     ConstantColumnDefinition,
-    PrimaryKeyColumnDefinition,
     DataColumnDefinition,
     UnknownColumnDefinition,
 ]
