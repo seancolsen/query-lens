@@ -56,8 +56,9 @@ def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectSt
     context = Context(database_structure, stmt)
     column_resolver = context.create_column_resolver()
 
-    for expr in stmt.targetList:
-        res_target: ResTarget = expr
+    for res_target in stmt.targetList:
+        if not isinstance(res_target, ResTarget):
+            raise ValueError(f"Unexpected statement target: {type(res_target)}")
         if res_target.indirection is not None:
             # The AST has an 'indirection' field here.
             #
@@ -68,6 +69,7 @@ def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectSt
             raise NotImplementedError()
 
         definition = _deduce_result_column_definition(column_resolver, res_target.val)
+        # TODO_NEXT
         name = res_target.name or _deduce_result_column_name(res_target.val)
         yield ResultColumn(definition=definition, name=name)
 

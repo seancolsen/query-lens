@@ -60,7 +60,7 @@ def _build_ctes_map(
 
 
 def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap:
-    def _build_column(column: Column) -> ResultColumn:
+    def build_result_column(column: Column) -> ResultColumn:
         column_reference = ColumnReference.from_structure(schema, table, column)
         definition = (
             PrimaryKeyColumnDefinition(
@@ -68,12 +68,14 @@ def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap
             )
             if column.name in table.primary_key
             else DataColumnDefinition(
-                type=column.type, column_reference=column_reference
+                type=column.type,
+                column_reference=column_reference,
+                primary_key_lookup_names=table.primary_key,
             )
         )
         return ResultColumn(name=column.name, definition=definition)
 
-    return {c.name: _build_column(c) for c in table.columns.values()}
+    return {c.name: build_result_column(c) for c in table.columns.values()}
 
 
 class Context:
