@@ -12,11 +12,11 @@ SELECT 1;
 {
   "result_columns": [
     {
-      "name": null,
       "definition": {
         "classification": "constant",
         "type": "unknown"
-      }
+      },
+      "name": null
     }
   ]
 }
@@ -35,32 +35,9 @@ FROM issues;
 {
   "result_columns": [
     {
-      "name": "id",
-      "definition": {
-        "classification": "primary_key",
-        "type": "integer",
-        "column_reference": {
-          "name": "id",
-          "attnum": 1,
-          "table_reference": {
-            "name": "issues",
-            "oid": 2,
-            "schema_reference": {
-              "name": "public",
-              "oid": 2200
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "issue_title",
       "definition": {
         "classification": "data",
-        "type": "text",
         "column_reference": {
-          "name": "title",
-          "attnum": 2,
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -68,9 +45,52 @@ FROM issues;
               "name": "public",
               "oid": 2200
             }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
           }
-        }
-      }
+        },
+        "lookup_column_sets": [
+          {
+            "column_names": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "name": "id"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "column_reference": {
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "title",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
+          }
+        },
+        "lookup_column_sets": [
+          {
+            "column_names": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "name": "issue_title"
     }
   ]
 }
