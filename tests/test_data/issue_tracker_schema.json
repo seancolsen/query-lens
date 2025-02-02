@@ -11,26 +11,34 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "username": {
               "name": "username",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "email": {
               "name": "email",
               "attnum": 3,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "team": {
               "name": "team",
               "attnum": 4,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "issues": {
@@ -40,51 +48,64 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "title": {
               "name": "title",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "description": {
               "name": "description",
               "attnum": 3,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "created_at": {
               "name": "created_at",
               "attnum": 4,
-              "type": "timestamp with time zone"
+              "type": "timestamp with time zone",
+              "mutable": true
             },
             "author": {
               "name": "author",
               "attnum": 5,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "status": {
               "name": "status",
               "attnum": 6,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "project": {
               "name": "project",
               "attnum": 7,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "duplicate_of": {
               "name": "duplicate_of",
               "attnum": 8,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "due_date": {
               "name": "due_date",
               "attnum": 9,
-              "type": "date"
+              "type": "date",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "assignments": {
@@ -94,21 +115,28 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "issue": {
               "name": "issue",
               "attnum": 2,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "user": {
               "name": "user",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "blocks": {
@@ -118,21 +146,28 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "blocker": {
               "name": "blocker",
               "attnum": 2,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "blocking": {
               "name": "blocking",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "projects": {
@@ -142,21 +177,28 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "name": {
               "name": "name",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "product": {
               "name": "product",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "labels": {
@@ -166,16 +208,22 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "name": {
               "name": "name",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "issue_labels": {
@@ -185,21 +233,28 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "issue": {
               "name": "issue",
               "attnum": 2,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "label": {
               "name": "label",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "comments": {
@@ -209,31 +264,40 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "issue": {
               "name": "issue",
               "attnum": 2,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "user": {
               "name": "user",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             },
             "body": {
               "name": "body",
               "attnum": 4,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "created_at": {
               "name": "created_at",
               "attnum": 5,
-              "type": "timestamp with time zone"
+              "type": "timestamp with time zone",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "teams": {
@@ -243,16 +307,22 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "name": {
               "name": "name",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "products": {
@@ -262,21 +332,28 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "name": {
               "name": "name",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             },
             "client": {
               "name": "client",
               "attnum": 3,
-              "type": "integer"
+              "type": "integer",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         },
         "clients": {
@@ -286,16 +363,22 @@
             "id": {
               "name": "id",
               "attnum": 1,
-              "type": "integer"
+              "type": "integer",
+              "mutable": false
             },
             "name": {
               "name": "name",
               "attnum": 2,
-              "type": "text"
+              "type": "text",
+              "mutable": true
             }
           },
-          "primary_key": [
-            "id"
+          "lookup_column_sets": [
+            {
+              "column_names": [
+                "id"
+              ]
+            }
           ]
         }
       }
