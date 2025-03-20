@@ -1,4 +1,5 @@
 from pglast.ast import Node, SelectStmt, JoinExpr, RangeVar
+from pglast.enums import JoinType
 from pydantic import BaseModel
 from typing import *
 
@@ -18,7 +19,7 @@ type ColumnResolver = Callable[
 
 class ReferencedRelation(BaseModel):
     """
-    Represents a relation referenced in the FROM clause of a SELECT statement.
+    Represents a relation referenced in the FROM or JOIN clauses of a SELECT statement.
 
     When the relation is aliased:
 
@@ -71,6 +72,21 @@ def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap
     return {c.name: build_result_column(c) for c in table.columns.values()}
 
 
+def _assert_node_is_range_var_or_join_expr(node: Node) -> None:
+    """
+    This checks to make sure a node is either a `RangeVar` (a table reference) or a
+    `JoinExpr` (a join) -- or a list/tuple of those. We use this to make sure we're only
+    handling AST nodes with simple structures that we already know.
+    """
+    if isinstance(node, RangeVar) or isinstance(node, JoinExpr):
+        return
+    elif isinstance(node, list) or isinstance(node, tuple):
+        for item in node:
+            _assert_node_is_range_var_or_join_expr(item)
+    else:
+        raise NotImplementedError()
+
+
 class Context:
     _database_structure: DatabaseStructure
     _current_schema: Schema
@@ -111,24 +127,60 @@ class Context:
     def _get_referenced_relations(
         self, node: Node
     ) -> Generator[ReferencedRelation, None, None]:
+        # `SelectStmt` represents an entire SELECT statement. Here we recurse into its
+        # FROM clause, which should be a table reference or a join expression.
         if isinstance(node, SelectStmt):
-            if not node.fromClause:
+            from_clause = node.fromClause
+            if not from_clause:
+                # This is the case where we're only selecting constant expressions, thus
+                # there are no referenced relations.
                 return
+            _assert_node_is_range_var_or_join_expr(from_clause)
             yield from self._get_referenced_relations(node.fromClause)
+
+        # If we have multiple nodes, we yield from each of them.
+        elif isinstance(node, list) or isinstance(node, tuple):
+            for item in node:
+                yield from self._get_referenced_relations(item)
+
+        # `RangeVar` represents a table name, possibly qualified with a schema name.
         elif isinstance(node, RangeVar):
             columns_map = self._resolve_relation(node.schemaname, node.relname)
             if not columns_map:
                 raise ValueError(f"Unable to resolve relation: {node}")
+            name = node.relname
+            if node.alias:
+                if node.alias.colnames:
+                    # We have not yet handled column aliases defined in the FROM clause.
+                    raise NotImplementedError()
+                name = node.alias.aliasname
             yield ReferencedRelation(
                 schema_name=node.schemaname,
-                name=node.relname,
+                name=name,
                 columns=columns_map,
             )
+
+        # `JoinExpr` represents a JOIN clause. We need to recurse into the left and
+        # right.
         elif isinstance(node, JoinExpr):
-            raise NotImplementedError()
-        elif isinstance(node, list) or isinstance(node, tuple):
-            for item in node:
-                yield from self._get_referenced_relations(item)
+            if node.alias or node.join_using_alias:
+                # `alias` and `join_using_alias` are more esoteric features that we
+                # don't need to handle for now. They do NOT represent a table alias.
+                raise NotImplementedError()
+            if node.jointype not in [JoinType.JOIN_INNER, JoinType.JOIN_LEFT]:
+                # We only attempt to handle INNER and LEFT joins for now.
+                raise NotImplementedError()
+            if node.isNatural:
+                # We don't try to handle natural joins for now.
+                raise NotImplementedError()
+            if node.usingClause:
+                # We don't try to handle USING clauses for now.
+                raise NotImplementedError()
+            _assert_node_is_range_var_or_join_expr(node.larg)
+            _assert_node_is_range_var_or_join_expr(node.rarg)
+            yield from self._get_referenced_relations(node.larg)
+            yield from self._get_referenced_relations(node.rarg)
+
         else:
             raise NotImplementedError()
 

@@ -97,7 +97,77 @@ FROM issues;
 ```
 
 
-## Joins
+## Simple join
+
+```sql
+SELECT
+  u.id,
+  t.name
+FROM users u
+JOIN teams AS t on t.id = u.team
+```
+
+```json
+{
+  "result_columns": [
+    {
+      "definition": {
+        "classification": "data",
+        "column_reference": {
+          "table_reference": {
+            "name": "users",
+            "oid": 1,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
+          }
+        },
+        "lookup_column_sets": [
+          {
+            "column_names": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "name": "id"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "column_reference": {
+          "table_reference": {
+            "name": "teams",
+            "oid": 9,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "name",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
+          }
+        },
+        "lookup_column_sets": []
+      },
+      "name": "name"
+    }
+  ]
+}
+```
+
+
+## Multiple joins
 
 ```sql
 SELECT
@@ -114,13 +184,9 @@ LEFT JOIN teams as team ON team.id = author.team
 {
   "result_columns": [
     {
-      "name": "id",
       "definition": {
-        "classification": "primary_key",
-        "type": "integer",
+        "classification": "data",
         "column_reference": {
-          "name": "id",
-          "attnum": 1,
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -128,18 +194,28 @@ LEFT JOIN teams as team ON team.id = author.team
               "name": "public",
               "oid": 2200
             }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
           }
-        }
-      }
+        },
+        "lookup_column_sets": [
+          {
+            "column_names": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "name": "id"
     },
     {
-      "name": "title",
       "definition": {
         "classification": "data",
-        "type": "text",
         "column_reference": {
-          "name": "title",
-          "attnum": 2,
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -147,47 +223,69 @@ LEFT JOIN teams as team ON team.id = author.team
               "name": "public",
               "oid": 2200
             }
+          },
+          "column": {
+            "name": "title",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
           }
-        }
-      }
+        },
+        "lookup_column_sets": [
+          {
+            "column_names": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "name": "title"
     },
     {
-      "name": "author",
       "definition": {
         "classification": "data",
-        "type": "text",
         "column_reference": {
-          "name": "username",
-          "attnum": 2,
           "table_reference": {
             "name": "users",
-            "oid": 3,
+            "oid": 1,
             "schema_reference": {
               "name": "public",
               "oid": 2200
             }
+          },
+          "column": {
+            "name": "username",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
           }
-        }
-      }
+        },
+        "lookup_column_sets": []
+      },
+      "name": "author"
     },
     {
-      "name": "team",
       "definition": {
         "classification": "data",
-        "type": "text",
         "column_reference": {
-          "name": "name",
-          "attnum": 2,
           "table_reference": {
             "name": "teams",
-            "oid": 4,
+            "oid": 9,
             "schema_reference": {
               "name": "public",
               "oid": 2200
             }
+          },
+          "column": {
+            "name": "name",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
           }
-        }
-      }
+        },
+        "lookup_column_sets": []
+      },
+      "name": "team"
     }
   ]
 }
