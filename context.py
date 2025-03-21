@@ -209,15 +209,6 @@ class Context:
         ) -> Optional[ColumnResolution]:
             if relation_name is None:
                 return flat_columns.get(column_name)
-                # flatly_resolved_column = flat_columns.get(column_name)
-                # if flatly_resolved_column is None:
-                #     return None
-                # (relation, flat_column) = flatly_resolved_column
-                # local_column_reference = LocalColumnReference(
-                #     relation=relation,
-                #     column_name=column_name,
-                # )
-                # return flat_column.recontextualize(local_column_reference)
 
             relations_map = (
                 schemas_map.get(schema_name)
@@ -237,10 +228,5 @@ class Context:
                 relation=RelationReference(name=relation_name, schema_name=schema_name),
                 column=column,
             )
-            # local_column_reference = LocalColumnReference(
-            #     relation=RelationReference(name=relation_name, schema_name=schema_name),
-            #     column_name=column_name,
-            # )
-            # return column.recontextualize(local_column_reference)
 
         return resolve_column

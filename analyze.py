@@ -83,19 +83,17 @@ def _analyze_result_columns(database_structure: DatabaseStructure, stmt: SelectS
             raise NotImplementedError()
 
         yield _analyze_result_column(resolve_column, res_target.val, res_target.name)
-        # name =  or _deduce_result_column_name(res_target.val)
-        # yield ResultColumn(definition=definition, name=name)
 
 
 def analyze_sql(database_structure: DatabaseStructure, sql: str):
     try:
         ast = parse_sql(sql)
     except Exception as e:
-        # TODO decide what return value should be for invalid input
+        # Invalid input
         raise NotImplementedError()
 
     if len(ast) != 1:
-        # TODO decide what return value should be for zero or multi-statement input
+        # Zero or multi-statement input
         raise NotImplementedError()
 
     first_statement = ast[0].stmt
@@ -106,5 +104,5 @@ def analyze_sql(database_structure: DatabaseStructure, sql: str):
             )
         )
     else:
-        # TODO decide what return value should be for non-SELECT input
+        # Non-SELECT input
         raise NotImplementedError()
