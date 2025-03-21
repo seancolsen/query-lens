@@ -1,4 +1,27 @@
 from pydantic import BaseModel
+from typing import *
+
+
+class RelationReference(BaseModel):
+    """
+    Represents a relation referenced locally in a query. It could be a table, a view, or
+    a CTE.
+
+    When the relation is aliased:
+
+    - `name` will represent the alias used.
+    - `schema_name` will be None.
+
+    When the relation is _not_ aliased:
+
+    - `name` will represent the actual relation name
+    - For CTEs, `schema_name` will be None.
+    - For tables and views, `schema_name` will be the actual schema name, even if it is
+      not explicitly specified when the relation is referenced in the query.
+    """
+
+    name: str
+    schema_name: Optional[str] = None
 
 
 class Column(BaseModel):
@@ -23,7 +46,6 @@ class Table(BaseModel):
     name: str
     oid: int
     columns: dict[str, Column]
-    lookup_column_sets: list[LookupColumnSet]
 
 
 class Schema(BaseModel):

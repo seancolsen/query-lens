@@ -37,7 +37,7 @@ FROM issues;
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -53,20 +53,20 @@ FROM issues;
             "mutable": false
           }
         },
-        "lookup_column_sets": [
-          {
-            "column_names": [
-              "id"
-            ]
-          }
-        ]
+        "local_source": {
+          "relation": {
+            "name": "issues",
+            "schema_name": null
+          },
+          "column_name": "id"
+        }
       },
       "name": "id"
     },
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -82,13 +82,13 @@ FROM issues;
             "mutable": true
           }
         },
-        "lookup_column_sets": [
-          {
-            "column_names": [
-              "id"
-            ]
-          }
-        ]
+        "local_source": {
+          "relation": {
+            "name": "issues",
+            "schema_name": null
+          },
+          "column_name": "title"
+        }
       },
       "name": "issue_title"
     }
@@ -96,13 +96,14 @@ FROM issues;
 }
 ```
 
-
-## Simple join
+## Simple join 
 
 ```sql
 SELECT
-  u.id,
-  t.name
+  u.id as user_id,
+  u.username as username,
+  t.id as team_id,
+  t.name as team_name
 FROM users u
 JOIN teams AS t on t.id = u.team
 ```
@@ -113,7 +114,7 @@ JOIN teams AS t on t.id = u.team
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "users",
             "oid": 1,
@@ -129,20 +130,78 @@ JOIN teams AS t on t.id = u.team
             "mutable": false
           }
         },
-        "lookup_column_sets": [
-          {
-            "column_names": [
-              "id"
-            ]
-          }
-        ]
+        "local_source": {
+          "relation": {
+            "name": "u",
+            "schema_name": null
+          },
+          "column_name": "id"
+        }
       },
-      "name": "id"
+      "name": "user_id"
     },
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
+          "table_reference": {
+            "name": "users",
+            "oid": 1,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "username",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "u",
+            "schema_name": null
+          },
+          "column_name": "username"
+        }
+      },
+      "name": "username"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
+          "table_reference": {
+            "name": "teams",
+            "oid": 9,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "t",
+            "schema_name": null
+          },
+          "column_name": "id"
+        }
+      },
+      "name": "team_id"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
           "table_reference": {
             "name": "teams",
             "oid": 9,
@@ -158,14 +217,19 @@ JOIN teams AS t on t.id = u.team
             "mutable": true
           }
         },
-        "lookup_column_sets": []
+        "local_source": {
+          "relation": {
+            "name": "t",
+            "schema_name": null
+          },
+          "column_name": "name"
+        }
       },
-      "name": "name"
+      "name": "team_name"
     }
   ]
 }
 ```
-
 
 ## Multiple joins
 
@@ -186,7 +250,7 @@ LEFT JOIN teams as team ON team.id = author.team
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -202,20 +266,20 @@ LEFT JOIN teams as team ON team.id = author.team
             "mutable": false
           }
         },
-        "lookup_column_sets": [
-          {
-            "column_names": [
-              "id"
-            ]
-          }
-        ]
+        "local_source": {
+          "relation": {
+            "name": "issue",
+            "schema_name": null
+          },
+          "column_name": "id"
+        }
       },
       "name": "id"
     },
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "issues",
             "oid": 2,
@@ -231,20 +295,20 @@ LEFT JOIN teams as team ON team.id = author.team
             "mutable": true
           }
         },
-        "lookup_column_sets": [
-          {
-            "column_names": [
-              "id"
-            ]
-          }
-        ]
+        "local_source": {
+          "relation": {
+            "name": "issue",
+            "schema_name": null
+          },
+          "column_name": "title"
+        }
       },
       "name": "title"
     },
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "users",
             "oid": 1,
@@ -260,14 +324,20 @@ LEFT JOIN teams as team ON team.id = author.team
             "mutable": true
           }
         },
-        "lookup_column_sets": []
+        "local_source": {
+          "relation": {
+            "name": "author",
+            "schema_name": null
+          },
+          "column_name": "username"
+        }
       },
       "name": "author"
     },
     {
       "definition": {
         "classification": "data",
-        "column_reference": {
+        "ultimate_source": {
           "table_reference": {
             "name": "teams",
             "oid": 9,
@@ -283,7 +353,13 @@ LEFT JOIN teams as team ON team.id = author.team
             "mutable": true
           }
         },
-        "lookup_column_sets": []
+        "local_source": {
+          "relation": {
+            "name": "team",
+            "schema_name": null
+          },
+          "column_name": "name"
+        }
       },
       "name": "team"
     }

@@ -8,53 +8,67 @@ from context import Context, ColumnResolver
 from structure import DatabaseStructure
 
 
-def _deduce_result_column_definition(
-    resolve_column: ColumnResolver, expr: Node
-) -> ColumnDefinition:
-    if isinstance(expr, A_Const):
-        return ConstantColumnDefinition(type="unknown")
-
-    if isinstance(expr, ColumnRef):
-        fields: Tuple[String] = expr.fields
-        column = None
-        schema_name = None
-        table_name = None
-        if len(fields) == 1:
-            column_name = fields[0].sval
-        elif len(fields) == 2:
-            table_name = fields[0].sval
-            column_name = fields[1].sval
-        elif len(fields) == 3:
-            schema_name = fields[0].sval
-            table_name = fields[1].sval
-            column_name = fields[2].sval
-        else:
-            reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
-            return UnknownColumnDefinition(reason=reason)
-        column = resolve_column(schema_name, table_name, column_name)
-        return (
-            column.definition
-            if column
-            else UnknownColumnDefinition(reason="Unable to resolve column.")
-        )
-
-    else:
-        raise NotImplementedError()
-
-
 def _deduce_result_column_name(expr: Node) -> Optional[str]:
     if isinstance(expr, ColumnRef):
         return expr.fields[-1].sval
     else:
-        # TODO we could get more clever here to handle additional cases. For example,
+        # We could get more clever here to handle additional cases. For example,
         # PostgreSQL will name a `count(*)` column as `count`. We could handle that here
         # and other similar cases.
         return None
 
 
-def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):
+def _analyze_result_column(
+    resolve_column: ColumnResolver, expr: Node, alias: Optional[str]
+) -> ResultColumn:
+    name = alias or _deduce_result_column_name(expr)
+
+    def unknown_column(reason: str) -> ResultColumn:
+        return ResultColumn(definition=UnknownExpression(reason=reason), name=name)
+
+    if isinstance(expr, A_Const):
+        return ResultColumn(definition=ConstantValue(type="unknown"), name=name)
+
+    if isinstance(expr, ColumnRef):
+        fields: List[String] = expr.fields
+        schema_name: Optional[str] = None
+        relation_name: Optional[str] = None
+        if len(fields) == 1:
+            column_name = fields[0].sval
+        elif len(fields) == 2:
+            relation_name = fields[0].sval
+            column_name = fields[1].sval
+        elif len(fields) == 3:
+            schema_name = fields[0].sval
+            relation_name = fields[1].sval
+            column_name = fields[2].sval
+        else:
+            reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
+            return unknown_column(reason)
+
+        if not isinstance(column_name, str):
+            reason = "Unable to identify string column in within AST."
+            return unknown_column(reason)
+
+        column_resolution = resolve_column(schema_name, relation_name, column_name)
+        if column_resolution is None:
+            return unknown_column("Unable to resolve column.")
+
+        column = column_resolution.column
+
+        local_column_reference = LocalColumnReference(
+            relation=column_resolution.relation,
+            column_name=column_name,
+        )
+        return column.recontextualize(local_column_reference, name)
+
+    else:
+        raise NotImplementedError()
+
+
+def _analyze_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):
     context = Context(database_structure, stmt)
-    column_resolver = context.create_column_resolver()
+    resolve_column = context.create_column_resolver()
 
     for res_target in stmt.targetList:
         if not isinstance(res_target, ResTarget):
@@ -68,10 +82,9 @@ def _deduce_result_columns(database_structure: DatabaseStructure, stmt: SelectSt
             # raising an error if encountered.
             raise NotImplementedError()
 
-        definition = _deduce_result_column_definition(column_resolver, res_target.val)
-        # TODO_NEXT
-        name = res_target.name or _deduce_result_column_name(res_target.val)
-        yield ResultColumn(definition=definition, name=name)
+        yield _analyze_result_column(resolve_column, res_target.val, res_target.name)
+        # name =  or _deduce_result_column_name(res_target.val)
+        # yield ResultColumn(definition=definition, name=name)
 
 
 def analyze_sql(database_structure: DatabaseStructure, sql: str):
@@ -89,7 +102,7 @@ def analyze_sql(database_structure: DatabaseStructure, sql: str):
     if isinstance(first_statement, SelectStmt):
         return Analysis(
             result_columns=list(
-                _deduce_result_columns(database_structure, first_statement)
+                _analyze_result_columns(database_structure, first_statement)
             )
         )
     else:

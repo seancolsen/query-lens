@@ -7,48 +7,53 @@ from analysis import *
 from structure import *
 
 
+# This maps column names to `ResultColumn` values.
 type ColumnsMap = Dict[str, ResultColumn]
+
+# This maps relation names to `ColumnsMap` values.
 type RelationsMap = Dict[str, ColumnsMap]
+
+# This maps schema names to `RelationsMap` values. CTEs within the current query are
+# stored within an entry with a schema name of `None`.
 type SchemasMap = Dict[Optional[str], RelationsMap]
 
-# schema_name, relation_name, column_name
+
+class ColumnResolution(BaseModel):
+    relation: RelationReference
+    column: ResultColumn
+
+
+# This maps column names to a (`RelationReference`, `ResultColumn`) tuple. It is
+# used to lookup columns by name when a column is referenced without a qualifying
+# relation name. The returned `ResultColumn` will be
+type FlatColumnsMap = Dict[str, ColumnResolution]
+
+# (schema_name, relation_name, column_name) -> Optional[ColumnResolution]
 type ColumnResolver = Callable[
-    [Optional[str], Optional[str], str], Optional[ResultColumn]
+    [Optional[str], Optional[str], str], Optional[ColumnResolution]
 ]
 
 
 class ReferencedRelation(BaseModel):
-    """
-    Represents a relation referenced in the FROM or JOIN clauses of a SELECT statement.
-
-    When the relation is aliased:
-
-    - `name` will represent the alias used.
-    - `schema_name` will be None.
-
-    When the relation is _not_ aliased:
-
-    - `name` will represent the actual relation name
-    - For CTEs, `schema_name` will be None.
-    - For tables and views, `schema_name` will be the actual schema name, even if it is
-      not explicitly specified when the relation is referenced in the query.
-    """
-
-    schema_name: Optional[str] = None
-    name: str
+    ref: RelationReference
     columns: ColumnsMap
 
 
-def _build_flat_columns_map(schemas: SchemasMap) -> ColumnsMap:
-    result: ColumnsMap = dict()
+def _build_flat_columns_map(schemas_map: SchemasMap) -> FlatColumnsMap:
+    result: FlatColumnsMap = dict()
     seen_column_names: Set[str] = set()
-    for relation in schemas.values():
-        for columns in relation.values():
+    for schema_name, relations_map in schemas_map.items():
+        for relation_name, columns in relations_map.items():
             for column_name, column in columns.items():
                 if column_name in seen_column_names:
                     continue
                 else:
-                    result[column_name] = column
+                    relation_reference = RelationReference(
+                        name=relation_name, schema_name=schema_name
+                    )
+                    result[column_name] = ColumnResolution(
+                        relation=relation_reference, column=column
+                    )
                     seen_column_names.add(column_name)
     return result
 
@@ -63,9 +68,9 @@ def _build_ctes_map(
 def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap:
     def build_result_column(column: Column) -> ResultColumn:
         column_reference = ColumnReference.from_structure(schema, table, column)
-        definition = DataColumnDefinition(
-            column_reference=column_reference,
-            lookup_column_sets=table.lookup_column_sets,
+        definition = DataReference(
+            ultimate_source=column_reference,
+            local_source=None,
         )
         return ResultColumn(name=column.name, definition=definition)
 
@@ -155,8 +160,7 @@ class Context:
                     raise NotImplementedError()
                 name = node.alias.aliasname
             yield ReferencedRelation(
-                schema_name=node.schemaname,
-                name=name,
+                ref=RelationReference(name=name, schema_name=node.schemaname),
                 columns=columns_map,
             )
 
@@ -188,9 +192,9 @@ class Context:
         relations = self._get_referenced_relations(self._stmt)
         schemas_map: SchemasMap = dict()
         for relation in relations:
-            relations_map = schemas_map.get(relation.schema_name, dict())
-            relations_map[relation.name] = relation.columns
-            schemas_map[relation.schema_name] = relations_map
+            relations_map = schemas_map.get(relation.ref.schema_name, dict())
+            relations_map[relation.ref.name] = relation.columns
+            schemas_map[relation.ref.schema_name] = relations_map
         return schemas_map
 
     def create_column_resolver(self) -> ColumnResolver:
@@ -202,9 +206,18 @@ class Context:
             schema_name: Optional[str],
             relation_name: Optional[str],
             column_name: str,
-        ) -> Optional[ResultColumn]:
+        ) -> Optional[ColumnResolution]:
             if relation_name is None:
                 return flat_columns.get(column_name)
+                # flatly_resolved_column = flat_columns.get(column_name)
+                # if flatly_resolved_column is None:
+                #     return None
+                # (relation, flat_column) = flatly_resolved_column
+                # local_column_reference = LocalColumnReference(
+                #     relation=relation,
+                #     column_name=column_name,
+                # )
+                # return flat_column.recontextualize(local_column_reference)
 
             relations_map = (
                 schemas_map.get(schema_name)
@@ -217,6 +230,17 @@ class Context:
             columns = relations_map.get(relation_name)
             if columns is None:
                 return None
-            return columns.get(column_name)
+            column = columns.get(column_name)
+            if column is None:
+                return None
+            return ColumnResolution(
+                relation=RelationReference(name=relation_name, schema_name=schema_name),
+                column=column,
+            )
+            # local_column_reference = LocalColumnReference(
+            #     relation=RelationReference(name=relation_name, schema_name=schema_name),
+            #     column_name=column_name,
+            # )
+            # return column.recontextualize(local_column_reference)
 
         return resolve_column
