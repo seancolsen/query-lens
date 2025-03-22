@@ -18,7 +18,8 @@ SELECT 1;
       },
       "name": null
     }
-  ]
+  ],
+  "pk_mappings": []
 }
 ```
 
@@ -91,6 +92,16 @@ FROM issues;
         }
       },
       "name": "issue_title"
+    }
+  ],
+  "pk_mappings": [
+    {
+      "pk_columns": [
+        "id"
+      ],
+      "data_columns": [
+        "issue_title"
+      ]
     }
   ]
 }
@@ -227,6 +238,24 @@ JOIN teams AS t on t.id = u.team
       },
       "name": "team_name"
     }
+  ],
+  "pk_mappings": [
+    {
+      "pk_columns": [
+        "user_id"
+      ],
+      "data_columns": [
+        "username"
+      ]
+    },
+    {
+      "pk_columns": [
+        "team_id"
+      ],
+      "data_columns": [
+        "team_name"
+      ]
+    }
   ]
 }
 ```
@@ -235,11 +264,13 @@ JOIN teams AS t on t.id = u.team
 
 ```sql
 SELECT
-  issue.id,
-  issue.title,
-  author.username as author,
-  team.name as team
-FROM issues as issue
+  issue.id          as issue_id,
+  issue.title       as title,
+  issue.description as description,
+  author.id         as author_id,
+  author.username   as author,
+  team.name         as team
+FROM issues     as issue
 LEFT JOIN users as author ON author.id = issue.author
 LEFT JOIN teams as team ON team.id = author.team
 ```
@@ -274,7 +305,7 @@ LEFT JOIN teams as team ON team.id = author.team
           "column_name": "id"
         }
       },
-      "name": "id"
+      "name": "issue_id"
     },
     {
       "definition": {
@@ -304,6 +335,64 @@ LEFT JOIN teams as team ON team.id = author.team
         }
       },
       "name": "title"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "description",
+            "attnum": 3,
+            "type": "text",
+            "mutable": true
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "issue",
+            "schema_name": null
+          },
+          "column_name": "description"
+        }
+      },
+      "name": "description"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
+          "table_reference": {
+            "name": "users",
+            "oid": 1,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "author",
+            "schema_name": null
+          },
+          "column_name": "id"
+        }
+      },
+      "name": "author_id"
     },
     {
       "definition": {
@@ -363,41 +452,28 @@ LEFT JOIN teams as team ON team.id = author.team
       },
       "name": "team"
     }
+  ],
+  "pk_mappings": [
+    {
+      "pk_columns": [
+        "issue_id"
+      ],
+      "data_columns": [
+        "title",
+        "description"
+      ]
+    },
+    {
+      "pk_columns": [
+        "author_id"
+      ],
+      "data_columns": [
+        "author"
+      ]
+    }
   ]
 }
 ```
 
 
-## Playground
 
-```sql
-WITH
-foo(v) AS (
-  SELECT 'bar'
-),
-labels AS (
-  SELECT
-    il.issue,
-    array_agg(label) AS labels
-  FROM labels
-  JOIN issue_labels il ON il.label = labels.id
-  GROUP BY il.issue
-)
-SELECT
-  public.issues.id,
-  issues.title,
-  issues.status AS stat,
-  due_date,
-  author.username,
-  email,
-  labels.labels,
-  foo.v
-FROM issues
-LEFT JOIN public.users author ON users.id = issues.author
-LEFT JOIN labels ON labels.issue = issues.id
-CROSS JOIN foo;
-```
-
-```json
-"TODO"
-```

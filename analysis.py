@@ -2,7 +2,7 @@ from typing import *
 
 from pydantic import BaseModel, Field
 
-from structure import Column, Table, Schema, LookupColumnSet, RelationReference
+from structure import Column, Table, Schema, RelationReference
 
 
 class SchemaReference(BaseModel):
@@ -121,6 +121,65 @@ class ResultColumn(BaseModel):
             name=alias or self.name,
         )
 
+    @classmethod
+    def from_table_column(cls, schema: Schema, table: Table, column: Column) -> Self:
+        column_reference = ColumnReference.from_structure(schema, table, column)
+        definition = DataReference(
+            ultimate_source=column_reference,
+            local_source=None,
+        )
+        return cls(name=column.name, definition=definition)
 
-class Analysis(BaseModel):
+
+class PkMapping(BaseModel):
+    """
+    This represents a mapping between some columns in a relation that can be used as a
+    basis for updating cells of other columns in the relation.
+
+    Actual tables will usually have one PkMapping. There can be multiple if there are
+    multiple UNIQUE NOT NULL keys present (e.g. an identity `id` column plus a `uuid`
+    column). And if there are no unique kys, then there will be not PkMappings.
+
+    A relation originating from a query might have multiple PkMappings if the query
+    joins multiple tables together.
+
+    - `pk_columns` — This property is a list of column names that, together, uniquely
+      identify a _portion_ of a row in the relation. Commonly, it will only contain one
+      column name, but it could contain more than one in the case of a composite key.
+    - `data_columns` — This property is a list of column names that can be updated when
+      the `pk_columns` are known.
+    """
+
+    pk_columns: List[str]
+    data_columns: List[str]
+
+
+def _build_pk_mappings_from_table(table: Table) -> Generator[PkMapping, None, None]:
+    for lookup_column_set in table.lookup_column_sets:
+        column_names = lookup_column_set.column_names
+        data_columns = [c for c in table.columns if c not in column_names]
+        yield PkMapping(pk_columns=column_names, data_columns=data_columns)
+
+
+class RelationStructure(BaseModel):
     result_columns: List[ResultColumn]
+    pk_mappings: List[PkMapping]
+
+    def get_column(self, name: str) -> Optional[ResultColumn]:
+        # Perf could be improved here by building, caching, and using a dict
+        return next((c for c in self.result_columns if c.name == name), None)
+
+    @classmethod
+    def from_table(cls, schema: Schema, table: Table) -> Self:
+        def build_result_column(column: Column) -> ResultColumn:
+            return ResultColumn.from_table_column(schema, table, column)
+
+        result_columns = [build_result_column(c) for c in table.columns.values()]
+        pk_mappings = list(_build_pk_mappings_from_table(table))
+
+        return cls(result_columns=result_columns, pk_mappings=pk_mappings)
+
+
+class NamedRelation(BaseModel):
+    reference: RelationReference
+    structure: RelationStructure

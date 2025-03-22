@@ -67,11 +67,12 @@ This is the process I've been following during development:
 
     ```json
     {
-      "result_columns": []
+      "result_columns": [],
+      "pk_mappings": []
     }
     ```
 
-    This way the expected result will validate into an `Analysis` but will surely fail the test assertion.
+    This way the expected result will validate into a `RelationStructure` but will surely fail the test assertion.
 
 1. Run the test. See where it's failing. Set breakpoints to inspect the data structures near the failure, stepping backwards up the call stack as necessary.
 
@@ -83,10 +84,10 @@ This is the process I've been following during development:
 
         Click on "homonymous" to read the `libpg_query` source code for the node. It usually has a bunch more comments.
 
-1. If the test is producing a valid `Analysis` for `actual_analysis`, then you can run the following from the debug console:
+1. If the test is producing a valid `RelationStructure` for `actual`, then you can run the following from the debug console:
 
     ```
-    actual_analysis.json()
+    actual.json()
     ```
 
     This will give you JSON that you can copy and format using your editor. Inspect it to make sure it's correct. Then copy-paste it into the expected result section within the markdown test case.

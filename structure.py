@@ -46,6 +46,7 @@ class Table(BaseModel):
     name: str
     oid: int
     columns: dict[str, Column]
+    lookup_column_sets: list[LookupColumnSet]
 
 
 class Schema(BaseModel):

@@ -4,7 +4,7 @@ from pglast import parse_sql
 from pglast.ast import SelectStmt, Node, A_Const, ColumnRef, String, ResTarget
 
 from analysis import *
-from context import Context, ColumnResolver
+from context import Context
 from structure import DatabaseStructure
 
 
@@ -18,9 +18,7 @@ def _deduce_result_column_name(expr: Node) -> Optional[str]:
         return None
 
 
-def _analyze_result_column(
-    resolve_column: ColumnResolver, expr: Node, alias: Optional[str]
-) -> ResultColumn:
+def _build_result_column(cx: Context, expr: Node, alias: Optional[str]) -> ResultColumn:
     name = alias or _deduce_result_column_name(expr)
 
     def unknown_column(reason: str) -> ResultColumn:
@@ -50,7 +48,7 @@ def _analyze_result_column(
             reason = "Unable to identify string column in within AST."
             return unknown_column(reason)
 
-        column_resolution = resolve_column(schema_name, relation_name, column_name)
+        column_resolution = cx.resolve_column(schema_name, relation_name, column_name)
         if column_resolution is None:
             return unknown_column("Unable to resolve column.")
 
@@ -66,10 +64,7 @@ def _analyze_result_column(
         raise NotImplementedError()
 
 
-def _analyze_result_columns(database_structure: DatabaseStructure, stmt: SelectStmt):
-    context = Context(database_structure, stmt)
-    resolve_column = context.create_column_resolver()
-
+def _build_result_columns(cx: Context, stmt: SelectStmt):
     for res_target in stmt.targetList:
         if not isinstance(res_target, ResTarget):
             raise ValueError(f"Unexpected statement target: {type(res_target)}")
@@ -82,10 +77,99 @@ def _analyze_result_columns(database_structure: DatabaseStructure, stmt: SelectS
             # raising an error if encountered.
             raise NotImplementedError()
 
-        yield _analyze_result_column(resolve_column, res_target.val, res_target.name)
+        yield _build_result_column(cx, res_target.val, res_target.name)
 
 
-def analyze_sql(database_structure: DatabaseStructure, sql: str):
+def _get_column_local_source(column: ResultColumn) -> Optional[LocalColumnReference]:
+    if not isinstance(column.definition, DataReference):
+        return None
+    return column.definition.local_source
+
+
+def _build_pk_mappings(
+    cx: Context, outer_columns: List[ResultColumn]
+) -> List[PkMapping]:
+    # ⚠️ The nested loops in this function are not great for performance. We're probably
+    # not dealing with large lists here. But this is an area of code that is ripe for
+    # performance improvement!
+    mappings: List[PkMapping] = list()
+    for sub_relation in cx.get_relations():
+        for sub_mapping in sub_relation.structure.pk_mappings:
+
+            def find_outer_pk_column(inner_pk_column_name: str) -> Optional[str]:
+                for outer_column in outer_columns:
+                    outer_column_source = _get_column_local_source(outer_column)
+                    if outer_column_source is None:
+                        return None
+                    if (
+                        outer_column_source.relation == sub_relation.reference
+                        and outer_column_source.column_name == inner_pk_column_name
+                    ):
+                        return outer_column.name
+                return None
+
+            def get_pk_columns() -> Optional[List[str]]:
+                result: List[str] = []
+                for c in sub_mapping.pk_columns:
+                    i = find_outer_pk_column(c)
+                    if i is None:
+                        return None
+                    result.append(i)
+                return result
+
+            pk_columns = get_pk_columns()
+            if pk_columns is None:
+                # If the outer relation doesn't contain all PK columns of the inner
+                # PkMapping, then we can't lift the inner PkMapping up to the outer one.
+                continue
+
+            data_columns: List[str] = []
+            for column in outer_columns:
+                if column.name is None:
+                    # Skip columns that don't have names
+                    continue
+                if not isinstance(column.definition, DataReference):
+                    # Skip columns that aren't data references
+                    continue
+                if column.definition.local_source is None:
+                    # This should not happen because we're in a query not a table
+                    continue
+                column_source_relation = column.definition.local_source.relation
+                if column_source_relation != sub_relation.reference:
+                    # Skip pairings where the inner loop over columns produces a column
+                    # that don't fall within the relation produced by the outer loop.
+                    continue
+                if (
+                    column.definition.local_source.column_name
+                    not in sub_mapping.data_columns
+                ):
+                    # Only use the column if it's a data column within the current
+                    # sub_mapping
+                    continue
+                data_columns.append(column.name)
+
+            # If data_columns is empty, we still include the PkMapping. I'm not sure if
+            # this is the behavior we'll ultimately want, but for now I figure it's
+            # better to include it on the off chance that it's somehow useful later on.
+
+            mappings.append(PkMapping(pk_columns=pk_columns, data_columns=data_columns))
+
+    return mappings
+
+
+def _analyze_select_statement(
+    database_structure: DatabaseStructure, statement: SelectStmt
+) -> RelationStructure:
+    cx = Context(database_structure, statement)
+    result_columns = list(_build_result_columns(cx, statement))
+    pk_mappings = _build_pk_mappings(cx, result_columns)
+    return RelationStructure(
+        result_columns=result_columns,
+        pk_mappings=pk_mappings,
+    )
+
+
+def analyze_sql(database_structure: DatabaseStructure, sql: str) -> RelationStructure:
     try:
         ast = parse_sql(sql)
     except Exception as e:
@@ -98,11 +182,7 @@ def analyze_sql(database_structure: DatabaseStructure, sql: str):
 
     first_statement = ast[0].stmt
     if isinstance(first_statement, SelectStmt):
-        return Analysis(
-            result_columns=list(
-                _analyze_result_columns(database_structure, first_statement)
-            )
-        )
+        return _analyze_select_statement(database_structure, first_statement)
     else:
         # Non-SELECT input
         raise NotImplementedError()

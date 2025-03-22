@@ -7,11 +7,8 @@ from analysis import *
 from structure import *
 
 
-# This maps column names to `ResultColumn` values.
-type ColumnsMap = Dict[str, ResultColumn]
-
-# This maps relation names to `ColumnsMap` values.
-type RelationsMap = Dict[str, ColumnsMap]
+# This maps relation names to `RelationStructure` values.
+type RelationsMap = Dict[str, RelationStructure]
 
 # This maps schema names to `RelationsMap` values. CTEs within the current query are
 # stored within an entry with a schema name of `None`.
@@ -34,27 +31,22 @@ type ColumnResolver = Callable[
 ]
 
 
-class ReferencedRelation(BaseModel):
-    ref: RelationReference
-    columns: ColumnsMap
-
-
 def _build_flat_columns_map(schemas_map: SchemasMap) -> FlatColumnsMap:
     result: FlatColumnsMap = dict()
     seen_column_names: Set[str] = set()
     for schema_name, relations_map in schemas_map.items():
-        for relation_name, columns in relations_map.items():
-            for column_name, column in columns.items():
-                if column_name in seen_column_names:
+        for relation_name, relation_structure in relations_map.items():
+            for column in relation_structure.result_columns:
+                if column.name is None or column.name in seen_column_names:
                     continue
                 else:
                     relation_reference = RelationReference(
                         name=relation_name, schema_name=schema_name
                     )
-                    result[column_name] = ColumnResolution(
+                    result[column.name] = ColumnResolution(
                         relation=relation_reference, column=column
                     )
-                    seen_column_names.add(column_name)
+                    seen_column_names.add(column.name)
     return result
 
 
@@ -63,18 +55,6 @@ def _build_ctes_map(
 ) -> RelationsMap:
     # TODO: Implement this function
     return dict()
-
-
-def _build_result_columns_from_table(schema: Schema, table: Table) -> ColumnsMap:
-    def build_result_column(column: Column) -> ResultColumn:
-        column_reference = ColumnReference.from_structure(schema, table, column)
-        definition = DataReference(
-            ultimate_source=column_reference,
-            local_source=None,
-        )
-        return ResultColumn(name=column.name, definition=definition)
-
-    return {c.name: build_result_column(c) for c in table.columns.values()}
 
 
 def _assert_node_is_range_var_or_join_expr(node: Node) -> None:
@@ -92,11 +72,30 @@ def _assert_node_is_range_var_or_join_expr(node: Node) -> None:
         raise NotImplementedError()
 
 
+def _build_schemas_map(relations: Iterable[NamedRelation]) -> SchemasMap:
+    schemas_map: SchemasMap = dict()
+    for relation in relations:
+        relations_map = schemas_map.get(relation.reference.schema_name, dict())
+        relations_map[relation.reference.name] = relation.structure
+        schemas_map[relation.reference.schema_name] = relations_map
+    return schemas_map
+
+
 class Context:
+    """
+    This stores information about the context of a single SELECT query. It is also used
+    recursively within CTEs.
+    """
+
+    # ⚠️ It would be nice to consolidate and clean up some of this state (e.g. _ctes vs
+    # _relations)
+
     _database_structure: DatabaseStructure
     _current_schema: Schema
     _stmt: SelectStmt
     _ctes: RelationsMap
+    _flat_columns: FlatColumnsMap
+    _relations: List[NamedRelation]
 
     def __init__(self, database_structure: DatabaseStructure, stmt: SelectStmt):
         self._database_structure = database_structure
@@ -107,11 +106,23 @@ class Context:
             raise ValueError("Current schema not found in database structure.")
         self._current_schema = current_schema
         self._stmt = stmt
+
         self._ctes = _build_ctes_map(database_structure, stmt)
+
+        # ⚠️ I don't like how we're calling this instance method within the constructor.
+        # It would be nice to refactor this out to avoid uninitialized class properties
+        # as the code grows.
+        self._relations = list(self._get_referenced_relations(self._stmt))
+
+        self._schemas_map = _build_schemas_map(self._relations)
+        self._flat_columns = _build_flat_columns_map(self._schemas_map)
 
     def _resolve_relation(
         self, schema_name: Optional[str], relation_name: str
-    ) -> Optional[ColumnsMap]:
+    ) -> Optional[RelationStructure]:
+        """
+        Searches the current scope to find a relation (table/view/CTE) by name
+        """
         if schema_name:
             schema = self._database_structure.schemas.get(schema_name)
             if schema is None:
@@ -119,7 +130,7 @@ class Context:
             table = schema.tables.get(relation_name)
             if table is None:
                 return None
-            return _build_result_columns_from_table(schema, table)
+            return RelationStructure.from_table(schema, table)
         else:
             cte = self._ctes.get(relation_name)
             if cte:
@@ -127,11 +138,16 @@ class Context:
             table = self._current_schema.tables.get(relation_name)
             if not table:
                 return None
-            return _build_result_columns_from_table(self._current_schema, table)
+            return RelationStructure.from_table(self._current_schema, table)
 
     def _get_referenced_relations(
         self, node: Node
-    ) -> Generator[ReferencedRelation, None, None]:
+    ) -> Generator[NamedRelation, None, None]:
+        """
+        Recursively descends the AST of a SELECT statement, yielding ReferencedRelation
+        instances to represent all the relations that are referenced within the FROM
+        clause.
+        """
         # `SelectStmt` represents an entire SELECT statement. Here we recurse into its
         # FROM clause, which should be a table reference or a join expression.
         if isinstance(node, SelectStmt):
@@ -148,7 +164,8 @@ class Context:
             for item in node:
                 yield from self._get_referenced_relations(item)
 
-        # `RangeVar` represents a table name, possibly qualified with a schema name.
+        # `RangeVar` represents a table/view/CTE name, possibly qualified with a schema
+        # name.
         elif isinstance(node, RangeVar):
             columns_map = self._resolve_relation(node.schemaname, node.relname)
             if not columns_map:
@@ -159,9 +176,9 @@ class Context:
                     # We have not yet handled column aliases defined in the FROM clause.
                     raise NotImplementedError()
                 name = node.alias.aliasname
-            yield ReferencedRelation(
-                ref=RelationReference(name=name, schema_name=node.schemaname),
-                columns=columns_map,
+            yield NamedRelation(
+                reference=RelationReference(name=name, schema_name=node.schemaname),
+                structure=columns_map,
             )
 
         # `JoinExpr` represents a JOIN clause. We need to recurse into the left and
@@ -188,45 +205,35 @@ class Context:
         else:
             raise NotImplementedError()
 
-    def _get_referenced_schemas_map(self) -> SchemasMap:
-        relations = self._get_referenced_relations(self._stmt)
-        schemas_map: SchemasMap = dict()
-        for relation in relations:
-            relations_map = schemas_map.get(relation.ref.schema_name, dict())
-            relations_map[relation.ref.name] = relation.columns
-            schemas_map[relation.ref.schema_name] = relations_map
-        return schemas_map
-
-    def create_column_resolver(self) -> ColumnResolver:
+    def resolve_column(
+        self,
+        schema_name: Optional[str],
+        relation_name: Optional[str],
+        column_name: str,
+    ) -> Optional[ColumnResolution]:
         current_schema = self._database_structure.current_schema
-        schemas_map = self._get_referenced_schemas_map()
-        flat_columns = _build_flat_columns_map(schemas_map)
 
-        def resolve_column(
-            schema_name: Optional[str],
-            relation_name: Optional[str],
-            column_name: str,
-        ) -> Optional[ColumnResolution]:
-            if relation_name is None:
-                return flat_columns.get(column_name)
+        if relation_name is None:
+            return self._flat_columns.get(column_name)
 
-            relations_map = (
-                schemas_map.get(schema_name)
-                if schema_name
-                else schemas_map.get(current_schema, schemas_map.get(None))
-            )
-            if relations_map is None:
-                return None
+        relations_map = (
+            self._schemas_map.get(schema_name)
+            if schema_name
+            else self._schemas_map.get(current_schema, self._schemas_map.get(None))
+        )
+        if relations_map is None:
+            return None
 
-            columns = relations_map.get(relation_name)
-            if columns is None:
-                return None
-            column = columns.get(column_name)
-            if column is None:
-                return None
-            return ColumnResolution(
-                relation=RelationReference(name=relation_name, schema_name=schema_name),
-                column=column,
-            )
+        relation_structure = relations_map.get(relation_name)
+        if relation_structure is None:
+            return None
+        column = relation_structure.get_column(column_name)
+        if column is None:
+            return None
+        return ColumnResolution(
+            relation=RelationReference(name=relation_name, schema_name=schema_name),
+            column=column,
+        )
 
-        return resolve_column
+    def get_relations(self) -> List[NamedRelation]:
+        return self._relations
