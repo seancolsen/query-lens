@@ -475,5 +475,95 @@ LEFT JOIN teams as team ON team.id = author.team
 }
 ```
 
+## Basic CTE
 
+```sql
+WITH
+  q AS (
+    SELECT
+      i.id AS issue_id,
+      i.title AS issue_title,
+      i.description AS issue_desc
+    FROM issues i
+  )
+SELECT
+  q.issue_id AS i_id,
+  q.issue_title as i_title
+FROM q
+```
+
+```json
+{
+  "result_columns": [
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "id",
+            "attnum": 1,
+            "type": "integer",
+            "mutable": false
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "q",
+            "schema_name": null
+          },
+          "column_name": "issue_id"
+        }
+      },
+      "name": "i_id"
+    },
+    {
+      "definition": {
+        "classification": "data",
+        "ultimate_source": {
+          "table_reference": {
+            "name": "issues",
+            "oid": 2,
+            "schema_reference": {
+              "name": "public",
+              "oid": 2200
+            }
+          },
+          "column": {
+            "name": "title",
+            "attnum": 2,
+            "type": "text",
+            "mutable": true
+          }
+        },
+        "local_source": {
+          "relation": {
+            "name": "q",
+            "schema_name": null
+          },
+          "column_name": "issue_title"
+        }
+      },
+      "name": "i_title"
+    }
+  ],
+  "pk_mappings": [
+    {
+      "pk_columns": [
+        "i_id"
+      ],
+      "data_columns": [
+        "i_title"
+      ]
+    }
+  ]
+}
+```
 

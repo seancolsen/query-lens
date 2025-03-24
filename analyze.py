@@ -10,6 +10,8 @@ from pglast.ast import (
     ResTarget,
     JoinExpr,
     RangeVar,
+    CommonTableExpr,
+    WithClause,
 )
 from pglast.enums import JoinType
 from pydantic import BaseModel
@@ -61,13 +63,6 @@ def _build_flat_columns_map(schemas_map: SchemasMap) -> FlatColumnsMap:
     return result
 
 
-def _build_ctes_map(
-    database_structure: DatabaseStructure, stmt: SelectStmt
-) -> RelationsMap:
-    # TODO: Implement this function
-    return dict()
-
-
 def _assert_node_is_range_var_or_join_expr(node: Node) -> None:
     """
     This checks to make sure a node is either a `RangeVar` (a table reference) or a
@@ -92,6 +87,58 @@ def _build_schemas_map(relations: Iterable[NamedRelation]) -> SchemasMap:
     return schemas_map
 
 
+def _validate_with_clause(with_clause: WithClause) -> None:
+    if with_clause.recursive:
+        # Not supported yet
+        raise NotImplementedError()
+
+
+def _validate_cte(cte: CommonTableExpr) -> None:
+    if not isinstance(cte.ctequery, SelectStmt):
+        # We only support SELECT queries within CTEs for now.
+        raise NotImplementedError()
+    if cte.aliascolnames is not None:
+        # Not supported yet
+        raise NotImplementedError()
+    if cte.ctecolcollations is not None:
+        # This seems esoteric enough that we may never need to support it
+        raise NotImplementedError()
+    if cte.ctecolnames is not None:
+        # Not supported yet
+        raise NotImplementedError()
+    if cte.ctecoltypes is not None:
+        # This seems esoteric enough that we may never need to support it
+        raise NotImplementedError()
+    if cte.ctecoltypmods is not None:
+        # I don't understand this. Erring on the side of caution.
+        raise NotImplementedError()
+    if cte.cterecursive:
+        # Not supported yet
+        raise NotImplementedError()
+    if cte.cycle_clause:
+        # I don't know what this is. Erring on the side of caution.
+        raise NotImplementedError()
+    if cte.search_clause:
+        # I don't know what this is. Erring on the side of caution.
+        raise NotImplementedError()
+
+
+def _deduce_result_column_name(expr: Node) -> Optional[str]:
+    if isinstance(expr, ColumnRef):
+        return expr.fields[-1].sval
+    else:
+        # We could get more clever here to handle additional cases. For example,
+        # PostgreSQL will name a `count(*)` column as `count`. We could handle that here
+        # and other similar cases.
+        return None
+
+
+def _get_column_local_source(column: ResultColumn) -> Optional[LocalColumnReference]:
+    if not isinstance(column.definition, DataReference):
+        return None
+    return column.definition.local_source
+
+
 class Context:
     """
     This stores information about the context of a single SELECT query. It is also used
@@ -103,30 +150,62 @@ class Context:
 
     _database_structure: DatabaseStructure
     _current_schema: Schema
-    _stmt: SelectStmt
+    _select_statement: SelectStmt
+
+    # The CTE relations in scope for use within this SELECT statement. They can be
+    # defined inside the WITH clause of this SELECT statement or in a parent scope.
     _ctes: RelationsMap
-    _flat_columns: FlatColumnsMap
+
+    # The relations that are referenced within the FROM clause of the SELECT statement.
     _relations: List[NamedRelation]
 
-    def __init__(self, database_structure: DatabaseStructure, stmt: SelectStmt):
+    # This stores _relations in a more convenient format for lookup by name.
+    _schemas_map: SchemasMap
+
+    # This allows us to lookup columns by name when a column is referenced without a
+    # qualifying relation name.
+    _flat_columns: FlatColumnsMap
+
+    def __init__(
+        self,
+        database_structure: DatabaseStructure,
+        select_statement: SelectStmt,
+        ctes: RelationsMap = dict(),
+    ):
         self._database_structure = database_structure
+        self._select_statement = select_statement
         current_schema = database_structure.schemas.get(
             database_structure.current_schema
         )
         if not current_schema:
             raise ValueError("Current schema not found in database structure.")
         self._current_schema = current_schema
-        self._stmt = stmt
 
-        self._ctes = _build_ctes_map(database_structure, stmt)
+        self._ctes = ctes
+        if select_statement.withClause:
+            _validate_with_clause(select_statement.withClause)
+            for cte in select_statement.withClause.ctes:
+                _validate_cte(cte)
+                child_context = self.spawn(cte.ctequery)
+                self._ctes[cte.ctename] = child_context.get_relation_structure()
 
         # ⚠️ I don't like how we're calling this instance method within the constructor.
         # It would be nice to refactor this out to avoid uninitialized class properties
         # as the code grows.
-        self._relations = list(self._get_referenced_relations(self._stmt))
+        self._relations = list(self._get_referenced_relations(select_statement))
 
         self._schemas_map = _build_schemas_map(self._relations)
         self._flat_columns = _build_flat_columns_map(self._schemas_map)
+
+    def spawn(
+        self,
+        select_statement: SelectStmt,
+    ) -> "Context":
+        return Context(
+            database_structure=self._database_structure,
+            select_statement=select_statement,
+            ctes=self._ctes,
+        )
 
     def _resolve_relation(
         self, schema_name: Optional[str], relation_name: str
@@ -216,7 +295,7 @@ class Context:
         else:
             raise NotImplementedError()
 
-    def resolve_column(
+    def _resolve_column(
         self,
         schema_name: Optional[str],
         relation_name: Optional[str],
@@ -246,169 +325,148 @@ class Context:
             column=column,
         )
 
-    def get_relations(self) -> List[NamedRelation]:
+    def _get_relations(self) -> List[NamedRelation]:
         return self._relations
 
+    def _build_result_column(self, expr: Node, alias: Optional[str]) -> ResultColumn:
+        name = alias or _deduce_result_column_name(expr)
 
-def _deduce_result_column_name(expr: Node) -> Optional[str]:
-    if isinstance(expr, ColumnRef):
-        return expr.fields[-1].sval
-    else:
-        # We could get more clever here to handle additional cases. For example,
-        # PostgreSQL will name a `count(*)` column as `count`. We could handle that here
-        # and other similar cases.
-        return None
+        def unknown_column(reason: str) -> ResultColumn:
+            return ResultColumn(definition=UnknownExpression(reason=reason), name=name)
 
+        if isinstance(expr, A_Const):
+            return ResultColumn(definition=ConstantValue(type="unknown"), name=name)
 
-def _build_result_column(cx: Context, expr: Node, alias: Optional[str]) -> ResultColumn:
-    name = alias or _deduce_result_column_name(expr)
+        if isinstance(expr, ColumnRef):
+            fields: List[String] = expr.fields
+            schema_name: Optional[str] = None
+            relation_name: Optional[str] = None
+            if len(fields) == 1:
+                column_name = fields[0].sval
+            elif len(fields) == 2:
+                relation_name = fields[0].sval
+                column_name = fields[1].sval
+            elif len(fields) == 3:
+                schema_name = fields[0].sval
+                relation_name = fields[1].sval
+                column_name = fields[2].sval
+            else:
+                reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
+                return unknown_column(reason)
 
-    def unknown_column(reason: str) -> ResultColumn:
-        return ResultColumn(definition=UnknownExpression(reason=reason), name=name)
+            if not isinstance(column_name, str):
+                reason = "Unable to identify string column in within AST."
+                return unknown_column(reason)
 
-    if isinstance(expr, A_Const):
-        return ResultColumn(definition=ConstantValue(type="unknown"), name=name)
+            column_resolution = self._resolve_column(
+                schema_name, relation_name, column_name
+            )
+            if column_resolution is None:
+                return unknown_column("Unable to resolve column.")
 
-    if isinstance(expr, ColumnRef):
-        fields: List[String] = expr.fields
-        schema_name: Optional[str] = None
-        relation_name: Optional[str] = None
-        if len(fields) == 1:
-            column_name = fields[0].sval
-        elif len(fields) == 2:
-            relation_name = fields[0].sval
-            column_name = fields[1].sval
-        elif len(fields) == 3:
-            schema_name = fields[0].sval
-            relation_name = fields[1].sval
-            column_name = fields[2].sval
+            column = column_resolution.column
+
+            local_column_reference = LocalColumnReference(
+                relation=column_resolution.relation,
+                column_name=column_name,
+            )
+            return column.recontextualize(local_column_reference, name)
+
         else:
-            reason = f"Unsupported number of ColumnRef fields. Expected 1-3. Got {len(fields)}."
-            return unknown_column(reason)
-
-        if not isinstance(column_name, str):
-            reason = "Unable to identify string column in within AST."
-            return unknown_column(reason)
-
-        column_resolution = cx.resolve_column(schema_name, relation_name, column_name)
-        if column_resolution is None:
-            return unknown_column("Unable to resolve column.")
-
-        column = column_resolution.column
-
-        local_column_reference = LocalColumnReference(
-            relation=column_resolution.relation,
-            column_name=column_name,
-        )
-        return column.recontextualize(local_column_reference, name)
-
-    else:
-        raise NotImplementedError()
-
-
-def _build_result_columns(cx: Context, stmt: SelectStmt):
-    for res_target in stmt.targetList:
-        if not isinstance(res_target, ResTarget):
-            raise ValueError(f"Unexpected statement target: {type(res_target)}")
-        if res_target.indirection is not None:
-            # The AST has an 'indirection' field here.
-            #
-            # https://pglast.readthedocs.io/en/v7/ast.html#pglast.ast.ResTarget
-            #
-            # I don't understand it well enough so I'm erring on the side of caution by
-            # raising an error if encountered.
             raise NotImplementedError()
 
-        yield _build_result_column(cx, res_target.val, res_target.name)
+    def _build_result_columns(self, stmt: SelectStmt):
+        for res_target in stmt.targetList:
+            if not isinstance(res_target, ResTarget):
+                raise ValueError(f"Unexpected statement target: {type(res_target)}")
+            if res_target.indirection is not None:
+                # The AST has an 'indirection' field here.
+                #
+                # https://pglast.readthedocs.io/en/v7/ast.html#pglast.ast.ResTarget
+                #
+                # I don't understand it well enough so I'm erring on the side of caution by
+                # raising an error if encountered.
+                raise NotImplementedError()
 
+            yield self._build_result_column(res_target.val, res_target.name)
 
-def _get_column_local_source(column: ResultColumn) -> Optional[LocalColumnReference]:
-    if not isinstance(column.definition, DataReference):
-        return None
-    return column.definition.local_source
+    def _build_pk_mappings(self, outer_columns: List[ResultColumn]) -> List[PkMapping]:
+        # ⚠️ The nested loops in this function are not great for performance. We're probably
+        # not dealing with large lists here. But this is an area of code that is ripe for
+        # performance improvement!
+        mappings: List[PkMapping] = list()
+        for sub_relation in self._get_relations():
+            for sub_mapping in sub_relation.structure.pk_mappings:
 
+                def find_outer_pk_column(inner_pk_column_name: str) -> Optional[str]:
+                    for outer_column in outer_columns:
+                        outer_column_source = _get_column_local_source(outer_column)
+                        if outer_column_source is None:
+                            return None
+                        if (
+                            outer_column_source.relation == sub_relation.reference
+                            and outer_column_source.column_name == inner_pk_column_name
+                        ):
+                            return outer_column.name
+                    return None
 
-def _build_pk_mappings(
-    cx: Context, outer_columns: List[ResultColumn]
-) -> List[PkMapping]:
-    # ⚠️ The nested loops in this function are not great for performance. We're probably
-    # not dealing with large lists here. But this is an area of code that is ripe for
-    # performance improvement!
-    mappings: List[PkMapping] = list()
-    for sub_relation in cx.get_relations():
-        for sub_mapping in sub_relation.structure.pk_mappings:
+                def get_pk_columns() -> Optional[List[str]]:
+                    result: List[str] = []
+                    for c in sub_mapping.pk_columns:
+                        i = find_outer_pk_column(c)
+                        if i is None:
+                            return None
+                        result.append(i)
+                    return result
 
-            def find_outer_pk_column(inner_pk_column_name: str) -> Optional[str]:
-                for outer_column in outer_columns:
-                    outer_column_source = _get_column_local_source(outer_column)
-                    if outer_column_source is None:
-                        return None
+                pk_columns = get_pk_columns()
+                if pk_columns is None:
+                    # If the outer relation doesn't contain all PK columns of the inner
+                    # PkMapping, then we can't lift the inner PkMapping up to the outer one.
+                    continue
+
+                data_columns: List[str] = []
+                for column in outer_columns:
+                    if column.name is None:
+                        # Skip columns that don't have names
+                        continue
+                    if not isinstance(column.definition, DataReference):
+                        # Skip columns that aren't data references
+                        continue
+                    if column.definition.local_source is None:
+                        # This should not happen because we're in a query not a table
+                        continue
+                    column_source_relation = column.definition.local_source.relation
+                    if column_source_relation != sub_relation.reference:
+                        # Skip pairings where the inner loop over columns produces a column
+                        # that don't fall within the relation produced by the outer loop.
+                        continue
                     if (
-                        outer_column_source.relation == sub_relation.reference
-                        and outer_column_source.column_name == inner_pk_column_name
+                        column.definition.local_source.column_name
+                        not in sub_mapping.data_columns
                     ):
-                        return outer_column.name
-                return None
+                        # Only use the column if it's a data column within the current
+                        # sub_mapping
+                        continue
+                    data_columns.append(column.name)
 
-            def get_pk_columns() -> Optional[List[str]]:
-                result: List[str] = []
-                for c in sub_mapping.pk_columns:
-                    i = find_outer_pk_column(c)
-                    if i is None:
-                        return None
-                    result.append(i)
-                return result
+                # If data_columns is empty, we still include the PkMapping. I'm not sure if
+                # this is the behavior we'll ultimately want, but for now I figure it's
+                # better to include it on the off chance that it's somehow useful later on.
 
-            pk_columns = get_pk_columns()
-            if pk_columns is None:
-                # If the outer relation doesn't contain all PK columns of the inner
-                # PkMapping, then we can't lift the inner PkMapping up to the outer one.
-                continue
+                mappings.append(
+                    PkMapping(pk_columns=pk_columns, data_columns=data_columns)
+                )
 
-            data_columns: List[str] = []
-            for column in outer_columns:
-                if column.name is None:
-                    # Skip columns that don't have names
-                    continue
-                if not isinstance(column.definition, DataReference):
-                    # Skip columns that aren't data references
-                    continue
-                if column.definition.local_source is None:
-                    # This should not happen because we're in a query not a table
-                    continue
-                column_source_relation = column.definition.local_source.relation
-                if column_source_relation != sub_relation.reference:
-                    # Skip pairings where the inner loop over columns produces a column
-                    # that don't fall within the relation produced by the outer loop.
-                    continue
-                if (
-                    column.definition.local_source.column_name
-                    not in sub_mapping.data_columns
-                ):
-                    # Only use the column if it's a data column within the current
-                    # sub_mapping
-                    continue
-                data_columns.append(column.name)
+        return mappings
 
-            # If data_columns is empty, we still include the PkMapping. I'm not sure if
-            # this is the behavior we'll ultimately want, but for now I figure it's
-            # better to include it on the off chance that it's somehow useful later on.
-
-            mappings.append(PkMapping(pk_columns=pk_columns, data_columns=data_columns))
-
-    return mappings
-
-
-def _analyze_select_statement(
-    database_structure: DatabaseStructure, statement: SelectStmt
-) -> RelationStructure:
-    cx = Context(database_structure, statement)
-    result_columns = list(_build_result_columns(cx, statement))
-    pk_mappings = _build_pk_mappings(cx, result_columns)
-    return RelationStructure(
-        result_columns=result_columns,
-        pk_mappings=pk_mappings,
-    )
+    def get_relation_structure(self) -> RelationStructure:
+        result_columns = list(self._build_result_columns(self._select_statement))
+        pk_mappings = self._build_pk_mappings(result_columns)
+        return RelationStructure(
+            result_columns=result_columns,
+            pk_mappings=pk_mappings,
+        )
 
 
 def analyze_sql(database_structure: DatabaseStructure, sql: str) -> RelationStructure:
@@ -424,7 +482,8 @@ def analyze_sql(database_structure: DatabaseStructure, sql: str) -> RelationStru
 
     first_statement = ast[0].stmt
     if isinstance(first_statement, SelectStmt):
-        return _analyze_select_statement(database_structure, first_statement)
+        cx = Context(database_structure, first_statement)
+        return cx.get_relation_structure()
     else:
         # Non-SELECT input
         raise NotImplementedError()
